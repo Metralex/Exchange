@@ -12,15 +12,17 @@ class Interface:
         try:
             print('Введите команду')
             order_str = input('Action: ').upper()
-            order_command = order_str.replace('Action: ', '').strip()
+            #order_command = order_str.replace('Action: ', '').strip()
+            order_command = order_str.strip()
 
             if order_command == 'VIEW ORDERS':
                 self.exchange.view_orders()
-                #continue
+                return
 
             if order_command == 'SWITCH INTERFACE':
                 self.current_mode = 'menu'
                 print('Переключено в режим меню')
+                return
 
             if order_command == 'QUIT':
                 exit()
@@ -36,7 +38,7 @@ class Interface:
                     self.exchange.show_prices(order_list[1])
                 else:
                     raise ValueError('Компании нет на бирже')
-                #continue
+                return
 
             if len(order_list) < 4:
                 raise ValueError('В команде не хватает параметров')
@@ -76,12 +78,12 @@ class Interface:
 
         except ValueError as ve:
             print(f'Ошибка валидации: {ve}')
-            #continue
+            return
 
         except Exception as e:
             print(f'Неизвестная ошибка: {e}')
             print('Попробуйте другую команду')
-            #continue
+            return
 
     def choose_interface(self):
 
@@ -121,8 +123,8 @@ class Interface:
             if self.number in range(1, 5):
                 try:
                     while True:
-                        action = 'BUY' if self.number == (1 or 3) else 'SELL'
-                        order_type = 'LMT' if self.number == (2 or 4) else 'MKT'
+                        action = 'BUY' if self.number == (1 and 3) else 'SELL'
+                        order_type = 'LMT' if self.number == (2 and 4) else 'MKT'
                         print('Введите номер выбранной компании:')
                         print(*enumerate(self.companies), sep='\n')
                         company_index = int(input('Action: '))
@@ -254,20 +256,15 @@ class StockExchangeQuotation:
             self.ask = 0
 
     def show_prices(self, company):
-        print(f"Проверяем компанию: {repr(company)}")
-        print(f"Всего ордеров в системе: {len(self.orders)}")
+        #print(f"Проверяем компанию: {repr(company)}")
+        #print(f"Всего ордеров в системе: {len(self.orders)}")
 
-        current_company_list = [order for order in self.orders if (order.company == company and order.filled_quantity > 0)]
+        current_company_list = [order for order in self.orders if (order.company == company and
+                                                                   order.filled_quantity > 0)]
         if current_company_list:
             print(f'{company} BID: {self.bid} ASK: {self.ask}, LAST: {current_company_list[-1].price}')
         else:
             print(f'Ордера на покупку/продажу акций компании {company} не выставлялись')
-
-        print(f"Исполненных ордеров для {company}: {len(current_company_list)}")
-        if current_company_list:
-            print(f'{company} BID: {self.bid} ASK: {self.ask}, LAST: {current_company_list[-1].price}')
-        else:
-            print(f'Сделки по покупке/продаже акций компании {company} не выполнялись')
 
     def match_orders(self):
         self.buy_lmt_orders.sort(key=lambda x: (-x.price, x.timestamp))

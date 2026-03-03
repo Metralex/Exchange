@@ -1,5 +1,6 @@
 from datetime import datetime
 
+
 class Interface:
     def __init__(self):
         self.menu = False
@@ -26,7 +27,7 @@ class Interface:
                 exit()
 
             order_list = order_command.split()
-            #print(order_list)
+            # print(order_list)
 
             if not order_list:
                 raise ValueError('Пустая строка')
@@ -60,19 +61,23 @@ class Interface:
                     raise ValueError('Стоимость должна быть больше нуля')
                 if quantity < 0:
                     raise ValueError('Количество должно быть больше нуля')
-                new_order = self.exchange.create_limit_order(action, company, order_type, price, quantity)
+                new_order = self.exchange.create_limit_order(
+                    action, company, order_type, price, quantity
+                )
             elif order_type == 'MKT':
                 quantity = int(order_list[3])
                 if quantity < 0:
                     raise ValueError('Количество должно быть больше нуля')
-                new_order = self.exchange.create_market_order(action, company, order_type, quantity)
+                new_order = self.exchange.create_market_order(
+                    action, company, order_type, quantity
+                )
             else:
                 raise ValueError('Неверный тип ордера')
-            #print('валидация прошла успешно')
+            # print('валидация прошла успешно')
             self.exchange.add_order(new_order)
-            #print('Операция выполнена')
-            #exchange.view_orders()
-            #return action, company, order_type, price, quantity
+            # print('Операция выполнена')
+            # exchange.view_orders()
+            # return action, company, order_type, price, quantity
 
         except ValueError as ve:
             print(f'Ошибка валидации: {ve}')
@@ -86,11 +91,11 @@ class Interface:
     def choose_interface(self):
 
         print('Выберите способ ввода:')
-        print('1. Терминал (по умолчанию)\n'
-              '2. Меню выбора\n'
-              'Чтобы пропустить нажмите Enter')
+        print(
+            '1. Терминал (по умолчанию)\n2. Меню выбора\nЧтобы пропустить нажмите Enter'
+        )
 
-        number =  input('Action: ')
+        number = input('Action: ')
         if number == '2':
             self.current_mode = 'menu'
 
@@ -100,20 +105,20 @@ class Interface:
             elif self.current_mode == 'terminal':
                 self.parser()
 
-
-
     def action_definer(self):
 
-        #while True:
+        # while True:
         print('Выберите действие и введите его номер:')
-        print('1. Разместить рыночный ордер на покупку\n'
-              '2. Разместить рыночный ордер на продажу\n'
-              '3. Разместить лимитный ордер на покупку\n'
-              '4. Разместить лимитный ордер на продажу\n'
-              '5. Получить последнюю цену ордера\n'
-              '6. Просмотреть ордера\n'
-              '7. Переключиться в режим терминала\n'
-              '8. Выход')
+        print(
+            '1. Разместить рыночный ордер на покупку\n'
+            '2. Разместить рыночный ордер на продажу\n'
+            '3. Разместить лимитный ордер на покупку\n'
+            '4. Разместить лимитный ордер на продажу\n'
+            '5. Получить последнюю цену ордера\n'
+            '6. Просмотреть ордера\n'
+            '7. Переключиться в режим терминала\n'
+            '8. Выход'
+        )
 
         self.number = input('Action: ')
         try:
@@ -133,9 +138,13 @@ class Interface:
                             print('Введите цену за одну единицу в $:')
                             price = float(input('Action: '))
                             self.validate_price(price)
-                            new_order = self.exchange.create_limit_order(action, company, order_type, price, quantity)
+                            new_order = self.exchange.create_limit_order(
+                                action, company, order_type, price, quantity
+                            )
                         else:
-                            new_order = self.exchange.create_market_order(action, company, order_type, quantity)
+                            new_order = self.exchange.create_market_order(
+                                action, company, order_type, quantity
+                            )
                         self.exchange.add_order(new_order)
                         break
 
@@ -168,7 +177,7 @@ class Interface:
     @staticmethod
     def validate_price(price):
         if price <= 0:
-            raise ValueError("Цена должна быть положительной")
+            raise ValueError('Цена должна быть положительной')
 
 
 class Order:
@@ -196,14 +205,21 @@ class Order:
 
 class StockExchangeQuotation:
     def __init__(self):
-        self.companies = ['SNAP', 'GOOGLE', 'AMAZON', 'OPENAI', 'FB', 'YANDEX', 'NVIDIA']
+        self.companies = [
+            'SNAP',
+            'GOOGLE',
+            'AMAZON',
+            'OPENAI',
+            'FB',
+            'YANDEX',
+            'NVIDIA',
+        ]
         self.sell_lmt_orders = []
         self.buy_lmt_orders = []
         self.orders = []
         self.bid = 0
         self.ask = 0
         self.filled = 0
-
 
     @staticmethod
     def create_limit_order(action, company, order_type, price, quantity):
@@ -218,8 +234,10 @@ class StockExchangeQuotation:
     def view_orders(self):
         if self.orders:
             for order in self.orders:
-                print(f'{order.company} {order.order_type} {order.action}'
-                      f' ${order.price} {order.filled_quantity}/{order.quantity} {order.status}')
+                print(
+                    f'{order.company} {order.order_type} {order.action}'
+                    f' ${order.price} {order.filled_quantity}/{order.quantity} {order.status}'
+                )
         else:
             print('Ордеров нет')
 
@@ -233,9 +251,11 @@ class StockExchangeQuotation:
         self.update_prices()
         if order.order_type == 'LMT':
             self.match_orders()
-            print(f'You have placed a limit'
-                  f' {order.action.lower()} order for {order.quantity} {order.company} '
-                  f'shares at ${order.price} each')
+            print(
+                f'You have placed a limit'
+                f' {order.action.lower()} order for {order.quantity} {order.company} '
+                f'shares at ${order.price} each'
+            )
         elif order.order_type == 'MKT':
             if order.action == 'BUY':
                 order.price = self.ask
@@ -243,9 +263,10 @@ class StockExchangeQuotation:
                 order.price = self.bid
             order.filled_quantity = order.quantity
             order.status = 'FILLED'
-            print(f'You have placed a market order for {order.quantity} {order.company} '
-                  f'shares.')
-
+            print(
+                f'You have placed a market order for {order.quantity} {order.company} '
+                f'shares.'
+            )
 
     def update_prices(self):
         if self.buy_lmt_orders:
@@ -259,36 +280,44 @@ class StockExchangeQuotation:
             self.ask = 0
 
     def get_last_price(self, company):
-        #print(f"Проверяем компанию: {repr(company)}")
-        #print(f"Всего ордеров в системе: {len(self.orders)}")
+        # print(f"Проверяем компанию: {repr(company)}")
+        # print(f"Всего ордеров в системе: {len(self.orders)}")
 
-        current_company_list = [order for order in self.orders if (order.company == company and
-                                                                   order.filled_quantity > 0)]
+        current_company_list = [
+            order
+            for order in self.orders
+            if (order.company == company and order.filled_quantity > 0)
+        ]
         if current_company_list:
-            print(f'{company} BID: {self.bid} ASK: {self.ask}, LAST: {current_company_list[-1].price}')
+            print(
+                f'{company} BID: {self.bid} ASK: {self.ask}, LAST: {current_company_list[-1].price}'
+            )
         else:
-            print(f'Ордера на покупку/продажу акций компании {company} не выставлялись')
+            print(
+                f'Ордера на покупку/продажу акций компании {company} не выставлялись'
+            )
 
     def match_orders(self):
         self.buy_lmt_orders.sort(key=lambda x: (-x.price, x.timestamp))
         self.sell_lmt_orders.sort(key=lambda x: (x.price, x.timestamp))
         for buy_order in self.buy_lmt_orders:
             for sell_order in self.sell_lmt_orders:
-                if (buy_order.price >= sell_order.price and
-                    buy_order.status == 'PENDING' and
-                    sell_order.status == 'PENDING' and
-                    buy_order.company == sell_order.company):
-                    buy_remaining = buy_order.quantity - buy_order.filled_quantity
-                    sell_remaining = sell_order.quantity - sell_order.filled_quantity
+                if (
+                    buy_order.price >= sell_order.price
+                    and buy_order.status == 'PENDING'
+                    and sell_order.status == 'PENDING'
+                    and buy_order.company == sell_order.company
+                ):
+                    buy_remaining = (
+                        buy_order.quantity - buy_order.filled_quantity
+                    )
+                    sell_remaining = (
+                        sell_order.quantity - sell_order.filled_quantity
+                    )
                     fill_amount = min(buy_remaining, sell_remaining)
                     buy_order.fill(fill_amount)
                     sell_order.fill(fill_amount)
 
 
-
 app = Interface()
 app.choose_interface()
-
-
-
-

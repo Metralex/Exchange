@@ -4,16 +4,14 @@ class Interface:
     def __init__(self):
         self.menu = False
         self.number = None
-        self.companies = ['SNAP', 'GOOGLE', 'AMAZON', 'OPENAI', 'FB', 'YANDEX', 'NVIDIA']
         self.exchange = StockExchangeQuotation()
+        self.companies = self.exchange.companies
         self.current_mode = 'terminal'
 
     def parser(self):
         try:
             print('Введите команду')
-            order_str = input('Action: ').upper()
-            #order_command = order_str.replace('Action: ', '').strip()
-            order_command = order_str.strip()
+            order_command = input('Action: ').upper().strip()
 
             if order_command == 'VIEW ORDERS':
                 self.exchange.view_orders()
@@ -34,8 +32,10 @@ class Interface:
                 raise ValueError('Пустая строка')
 
             if order_list[0] == 'QUOTE':
+                if not order_list[1]:
+                    raise IndexError('Введите название компании')
                 if order_list[1] in self.companies:
-                    self.exchange.show_prices(order_list[1])
+                    self.exchange.get_last_price(order_list[1])
                 else:
                     raise ValueError('Компании нет на бирже')
                 return
@@ -58,20 +58,18 @@ class Interface:
                 quantity = int(order_list[4])
                 if price < 0:
                     raise ValueError('Стоимость должна быть больше нуля')
+                if quantity < 0:
+                    raise ValueError('Количество должно быть больше нуля')
                 new_order = self.exchange.create_limit_order(action, company, order_type, price, quantity)
             elif order_type == 'MKT':
                 quantity = int(order_list[3])
+                if quantity < 0:
+                    raise ValueError('Количество должно быть больше нуля')
                 new_order = self.exchange.create_market_order(action, company, order_type, quantity)
             else:
                 raise ValueError('Неверный тип ордера')
-
-            if quantity < 0:
-                raise ValueError('Количество должно быть больше нуля')
-
             #print('валидация прошла успешно')
-
             self.exchange.add_order(new_order)
-
             #print('Операция выполнена')
             #exchange.view_orders()
             #return action, company, order_type, price, quantity
@@ -123,8 +121,8 @@ class Interface:
             if self.number in range(1, 5):
                 try:
                     while True:
-                        action = 'BUY' if self.number == (1 and 3) else 'SELL'
-                        order_type = 'LMT' if self.number == (2 and 4) else 'MKT'
+                        action = 'BUY' if self.number in (1, 3) else 'SELL'
+                        order_type = 'LMT' if self.number in (2, 4) else 'MKT'
                         print('Введите номер выбранной компании:')
                         print(*enumerate(self.companies), sep='\n')
                         company_index = int(input('Action: '))
@@ -134,6 +132,7 @@ class Interface:
                         if order_type == 'LMT':
                             print('Введите цену за одну единицу в $:')
                             price = float(input('Action: '))
+                            self.validate_price(price)
                             new_order = self.exchange.create_limit_order(action, company, order_type, price, quantity)
                         else:
                             new_order = self.exchange.create_market_order(action, company, order_type, quantity)
@@ -150,7 +149,7 @@ class Interface:
                 if company_index not in range(len(self.companies)):
                     raise ValueError('Такого номера нет в списке')
                 else:
-                    self.exchange.show_prices(self.companies[company_index])
+                    self.exchange.get_last_price(self.companies[company_index])
 
             if self.number == 6:
                 self.exchange.view_orders()
@@ -163,10 +162,13 @@ class Interface:
                 print('Выход из программы')
                 exit()
 
-
-
         except ValueError:
             print('Необходимо ввести число от 1 до 8')
+
+    @staticmethod
+    def validate_price(price):
+        if price <= 0:
+            raise ValueError("Цена должна быть положительной")
 
 
 class Order:
@@ -194,6 +196,7 @@ class Order:
 
 class StockExchangeQuotation:
     def __init__(self):
+        self.companies = ['SNAP', 'GOOGLE', 'AMAZON', 'OPENAI', 'FB', 'YANDEX', 'NVIDIA']
         self.sell_lmt_orders = []
         self.buy_lmt_orders = []
         self.orders = []
@@ -239,7 +242,7 @@ class StockExchangeQuotation:
             if order.action == 'SELL':
                 order.price = self.bid
             order.filled_quantity = order.quantity
-            order.status = f'{order.filled_quantity}/{order.quantity} FILLED'
+            order.status = 'FILLED'
             print(f'You have placed a market order for {order.quantity} {order.company} '
                   f'shares.')
 
@@ -255,7 +258,7 @@ class StockExchangeQuotation:
         else:
             self.ask = 0
 
-    def show_prices(self, company):
+    def get_last_price(self, company):
         #print(f"Проверяем компанию: {repr(company)}")
         #print(f"Всего ордеров в системе: {len(self.orders)}")
 

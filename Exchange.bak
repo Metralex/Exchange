@@ -1,0 +1,435 @@
+from datetime import datetime
+
+
+class UserInterface:
+    def __init__(self, order_book, price_feed, companies):
+        self.order_book = order_book
+        self.price_feed = price_feed
+        self.companies = companies
+        self.current_mode = 'terminal'
+
+
+    def run(self):
+        self.choose_interface()
+        while True:
+            if self.current_mode == 'menu':
+                self.menu_mode()
+            elif self.current_mode == 'terminal':
+                self.terminal_mode()
+
+    def _process_menu_choice(self, choice):
+        try:
+            if choice == 1:
+                self.place_market_order('BUY')
+            elif choice == 2:
+                self.place_market_order('SELL')
+            elif choice == 3:
+                self.place_limit_order('BUY')
+            elif choice == 4:
+                self.place_limit_order('SELL')
+            elif choice == 5:
+                self.show_market_data()
+            elif choice == 6:
+                self.display_orders()
+            elif choice == 7:
+                self.current_mode = 'terminal'
+                print('Переключено в режим терминала')
+            elif choice == 8:
+                print('Выход из программы')
+                exit()
+            else:
+                print('Неверный номер пункта меню. Выберите от 1 до 8.')
+        except ValueError as ve:
+            print(f'Ошибка ввода: {ve}')
+        except Exception as e:
+            print(f'Неожиданная ошибка: {e}')
+
+    def terminal_mode(self):
+        try:
+            command = input('Action: ').strip().upper()
+            self.process_terminal_command(command)
+        except Exception as e:
+            print(f'Ошибка: {e}')
+
+    def menu_mode(self):
+        print('Выберите действие и введите его номер:')
+        print('1. Разместить рыночный ордер на покупку\n'
+              '2. Разместить рыночный ордер на продажу\n'
+              '3. Разместить лимитный ордер на покупку\n'
+              '4. Разместить лимитный ордер на продажу\n'
+              '5. Получить последнюю цену ордера\n'
+              '6. Просмотреть ордера\n'
+              '7. Переключиться в режим терминала\n'
+              '8. Выход')
+
+        try:
+            choice = int(input('Action: '))
+            self.process_menu_choice(choice)
+        except ValueError:
+            print('Введите число от 1 до 8')
+
+
+    def choose_interface(self):
+
+        print('Выберите способ ввода:')
+        print('1. Терминал (по умолчанию)\n'
+              '2. Меню выбора\n'
+              'Чтобы пропустить нажмите Enter')
+
+        number = input('Action: ')
+        if number == '2':
+            self.current_mode = 'menu'
+
+
+    def process_terminal_command(self, command):
+        if command == 'VIEW ORDERS':
+            self.display_orders()
+        elif command == 'SWITCH INTERFACE':
+            self.current_mode = 'menu'
+            print('Переключено в режим меню')
+        elif command == 'QUIT':
+            exit()
+        else:
+            parts = command.split()
+        if len(parts) >= 3:
+            action, company, order_type = parts[0], parts[1], parts[2]
+            order = self.create_order_from_parts(parts)
+            if order:
+                self.order_book.add_order(order)
+
+
+    def create_order_from_parts(self, parts):
+        action, company, order_type = parts[0], parts[1], parts[2]
+        if company not in self.companies:
+            raise ValueError('Компании нет на бирже')
+        if order_type == 'LMT':
+            price = float(parts[3].replace('$', ''))
+            quantity =  int(parts[4])
+            if quantity <= 0:
+                raise ValueError('Количество должно быть положительным')
+            if price <= 0:
+                raise ValueError('Цена должна быть положительной')
+            return self.order_book.create_limit_order(action, company, price, quantity)
+        elif order_type == 'MKT':
+            quantity = int(parts[3])
+            if quantity <= 0:
+                raise
+            return self.order_book.create_market_order(action, company, quantity)
+
+    def display_orders(self):
+        if not self.order_book.all_orders:
+            print('Ордеров нет')
+
+        for order in self.order_book.all_orders:
+            print(f'{order.company} {order.order_type} {order.action} '
+                  f'${order.price}, {order.filled_quantity}/{order.quantity} {order.status}')
+
+
+
+
+
+
+class OrderBook:
+    def __init__(self):
+        self.buy_orders = []
+        self.sell_orders = []
+        self.all_orders = []
+
+    def create_limit_order(self, action, company, price, quantity):
+        return Order(action, company, 'LMT', price, quantity)
+
+    def create_market_order(self, action, company, quantity):
+        return Order(action, company, 'MKT', None, quantity)
+
+    def add_order(self, order):
+        self.all_orders.append(order)
+        if order.order_type == 'LMT':
+            if order.action == 'BUY':
+                self.buy_orders.append(order)
+            if order.action == 'SELL':
+                self.sell_orders.append(order)
+        self.match_orders()
+
+    def match_orders(self):
+        self.buy_orders.sort(key=lambda x: (-x.price, x.timestamp))
+        self.sell_orders.sort(key=lambda x: (x.price, x.timestamp))
+        for buy_order in self.buy_orders:
+            for sell_order in self.sell_orders:
+                if (buy_order.price >= sell_order.price and
+                    buy_order.status == 'PENDING' and
+                    sell_order.status == 'PENDING' and
+                    buy_order.company == sell_order.company):
+                    buy_remaining = buy_order.quantity - buy_order.filled_quantity
+                    sell_remaining = sell_order.quantity - sell_order.filled_quantity
+                    fill_amount = min(buy_remaining, sell_remaining)
+                    buy_order.fill(fill_amount)
+                    sell_order.fill(fill_amount)
+
+
+class PriceFeed:
+    def __init__(self, order_book):
+        self.order_book = order_book
+        self.bid = 0
+        self.ask = 0
+
+    def update_prices(self):
+        buy_orders = self.order_book.buy_orders
+        sell_orders = self.order_book.sell_orders
+        if buy_orders:
+            self.bid = max(order.price for order in buy_orders)
+        else:
+            self.bid = 0
+
+        if sell_orders:
+            self.ask = min(order.price for order in sell_orders)
+        else:
+            self.ask = 0
+
+    def get_last_price(self, company):
+        filled_orders = [order for order in self.order_book.all_orders
+                         if (order.company == company and order.filled_quantity > 0)
+                         ]
+        return filled_orders[-1].price if filled_orders else None
+
+        # if current_company_list:
+        #     print(f'{company} BID: {self.bid} ASK: {self.ask}, LAST: {current_company_list[-1].price}')
+        # else:
+        #     print(f'Ордера на покупку/продажу акций компании {company} не выставлялись')
+
+    def get_market_data(self, company):
+        last_price = self.get_last_price(company)
+        return {
+            'company': company,
+            'bid': self.bid,
+            'ask': self.ask,
+            'last': last_price
+        }
+
+
+
+
+
+    # def parser(self):
+    #     try:
+    #         print('Введите команду')
+    #         order_str = input('Action: ').upper()
+    #         #order_command = order_str.replace('Action: ', '').strip()
+    #         order_command = order_str.strip()
+    #
+    #         if order_command == 'VIEW ORDERS':
+    #             self.exchange.view_orders()
+    #             return
+    #
+    #         if order_command == 'SWITCH INTERFACE':
+    #             self.current_mode = 'menu'
+    #             print('Переключено в режим меню')
+    #             return
+    #
+    #         if order_command == 'QUIT':
+    #             exit()
+    #
+    #         order_list = order_command.split()
+    #         #print(order_list)
+    #
+    #         if not order_list:
+    #             raise ValueError('Пустая строка')
+    #
+    #         if order_list[0] == 'QUOTE':
+    #             if order_list[1] in self.companies:
+    #                 self.exchange.get_last_price(order_list[1])
+    #             else:
+    #                 raise ValueError('Компании нет на бирже')
+    #             return
+    #
+    #         if len(order_list) < 4:
+    #             raise ValueError('В команде не хватает параметров')
+    #
+    #         action = order_list[0]
+    #         company = order_list[1]
+    #         order_type = order_list[2]
+    #
+    #         if action not in ['BUY', 'SELL']:
+    #             raise ValueError('Неизвестная команда')
+    #
+    #         if company not in self.companies:
+    #             raise ValueError('Выбранной компании нет на бирже')
+    #
+    #         if order_type == 'LMT':
+    #             price = float(order_list[3].replace('$', ''))
+    #             quantity = int(order_list[4])
+    #             if price < 0:
+    #                 raise ValueError('Стоимость должна быть больше нуля')
+    #             new_order = self.exchange.create_limit_order(action, company, order_type, price, quantity)
+    #         elif order_type == 'MKT':
+    #             quantity = int(order_list[3])
+    #             new_order = self.exchange.create_market_order(action, company, order_type, quantity)
+    #         else:
+    #             raise ValueError('Неверный тип ордера')
+    #
+    #         if quantity < 0:
+    #             raise ValueError('Количество должно быть больше нуля')
+    #
+    #         #print('валидация прошла успешно')
+    #
+    #         self.exchange.add_order(new_order)
+    #
+    #         #print('Операция выполнена')
+    #         #exchange.view_orders()
+    #         #return action, company, order_type, price, quantity
+    #
+    #     except ValueError as ve:
+    #         print(f'Ошибка валидации: {ve}')
+    #         return
+    #
+    #     except Exception as e:
+    #         print(f'Неизвестная ошибка: {e}')
+    #         print('Попробуйте другую команду')
+    #         return
+
+
+
+
+
+
+
+    # def action_definer(self):
+    #     #while True:
+    #     self.number = input('Action: ')
+    #     try:
+    #         self.number = int(self.number)
+    #         if self.number in range(1, 5):
+    #             try:
+    #                 while True:
+    #                     action = 'BUY' if self.number == (1 and 3) else 'SELL'
+    #                     order_type = 'LMT' if self.number == (2 and 4) else 'MKT'
+    #                     print('Введите номер выбранной компании:')
+    #                     print(*enumerate(self.companies), sep='\n')
+    #                     company_index = int(input('Action: '))
+    #                     company = self.companies[company_index]
+    #                     print('Введите количество')
+    #                     quantity = int(input('Action: '))
+    #                     if order_type == 'LMT':
+    #                         print('Введите цену за одну единицу в $:')
+    #                         price = float(input('Action: '))
+    #                         self.validate_price(price)
+    #                         new_order = self.exchange.create_limit_order(action, company, order_type, price, quantity)
+    #                     else:
+    #                         new_order = self.exchange.create_market_order(action, company, order_type, quantity)
+    #                     self.exchange.add_order(new_order)
+    #                     break
+    #
+    #             except ValueError:
+    #                 print('Вводите только числа')
+    #
+    #         if self.number == 5:
+    #             print(*enumerate(self.companies), sep='\n')
+    #             print('Введите номер компании:')
+    #             company_index = int(input('Company: '))
+    #             if company_index not in range(len(self.companies)):
+    #                 raise ValueError('Такого номера нет в списке')
+    #             else:
+    #                 self.exchange.get_last_price(self.companies[company_index])
+    #
+    #         if self.number == 6:
+    #             self.exchange.view_orders()
+    #
+    #         if self.number == 7:
+    #             self.current_mode = 'terminal'
+    #             print('Переключено в терминал')
+    #
+    #         if self.number == 8:
+    #             print('Выход из программы')
+    #             exit()
+    #
+    #     except ValueError:
+    #         print('Необходимо ввести число от 1 до 8')
+    #
+    # @staticmethod
+    # def validate_price(price):
+    #     if price <= 0:
+    #         raise ValueError("Цена должна быть положительной")
+
+
+class Order:
+    def __init__(self, action, company, order_type, price, quantity):
+        self.action = action
+        self.company = company
+        self.order_type = order_type
+        self.stock = None
+        self.price = price
+        self.quantity = quantity
+        self.status = 'PENDING'
+        self.filled_quantity = 0
+        self.timestamp = datetime.now()
+
+    def fill(self, amount):
+        self.filled_quantity += amount
+        if self.filled_quantity == self.quantity:
+            self.status = 'FILLED'
+        elif self.filled_quantity > 0:
+            self.status = 'PARTIAL'
+
+    def remaining(self):
+        return self.quantity - self.filled_quantity
+
+
+class StockExchangeQuotation:
+    def __init__(self):
+        self.sell_lmt_orders = []
+        self.buy_lmt_orders = []
+        self.orders = []
+        self.bid = 0
+        self.ask = 0
+        self.filled = 0
+
+
+    @staticmethod
+    def create_limit_order(action, company, order_type, price, quantity):
+        new_order = Order(action, company, order_type, price, quantity)
+        return new_order
+
+    @staticmethod
+    def create_market_order(action, company, order_type, quantity):
+        new_order = Order(action, company, order_type, None, quantity)
+        return new_order
+
+    def view_orders(self):
+        if self.orders:
+            for order in self.orders:
+                print(f'{order.company} {order.order_type} {order.action}'
+                      f' ${order.price} {order.filled_quantity}/{order.quantity} {order.status}')
+        else:
+            print('Ордеров нет')
+
+
+def main():
+    # Список доступных компаний
+    companies = ['SNAP', 'GOOGLE', 'AMAZON', 'OPENAI', 'FB', 'YANDEX', 'NVIDIA']
+
+    # Создаём компоненты системы
+    order_book = OrderBook()
+    price_feed = PriceFeed(order_book)
+    ui = UserInterface(order_book, price_feed, companies)
+
+    print("Добро пожаловать в торговую систему!")
+    print(f"Доступные компании: {', '.join(companies)}")
+    print("-" * 50)
+
+    try:
+        # Запускаем основной цикл интерфейса
+        ui.run()
+    except KeyboardInterrupt:
+        print("\n\nПрограмма завершена по запросу пользователя.")
+    except Exception as e:
+        print(f"\nКритическая ошибка: {e}")
+        print("Программа аварийно завершена.")
+
+main()
+
+# if __name__ == "__main__":
+#     main()
+
+
+
+
+

@@ -1,0 +1,9 @@
+[tool.ruff]
+line-length = 79
+indent-width = 4
+target-version = "py38"
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+skip-magic-trailing-comma = false

@@ -109,12 +109,10 @@ class Interface:
                 self.matching.match_orders(self.order_book)
 
         except ValueError as ve:
-            print(f'Ошибка валидации: {ve}')
+            print(f'Ошибка ввода: {ve}')
             return
-
-        except Exception as e:
-            print(f'Неизвестная ошибка: {e}')
-            print('Попробуйте другую команду')
+        except IndexError as e:
+            print(f'Ошибка индекса: {e}')
             return
 
     def choose_interface(self):
@@ -233,6 +231,9 @@ class Interface:
         except ValueError as e:
             print(f'Ошибка: {e}')
             print('Необходимо ввести число от 1 до 8')
+
+        except IndexError as e:
+            print(f'Ошибка индекса: {e}')
 
 
 class Order:
@@ -373,7 +374,7 @@ class Quotation:
         bid, ask = order_book.get_best_prices(company)
         last = order_book.last_trade_price.get(company)
         # print(order_book.last_trade_price)
-        if last:
+        if bid or ask:
             print(f'{company} BID: {bid} ASK: {ask}, LAST: {last}')
         else:
             print(

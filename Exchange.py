@@ -150,7 +150,6 @@ class Interface:
             return selected_action
         except (ValueError, KeyError):
             print('Неверный ввод. Попробуйте снова.')
-            return self.action_definer()
 
     def run_menu(self):
         try:
@@ -160,12 +159,12 @@ class Interface:
                 print(*enumerate(self.companies), sep='\n')
                 print('Введите номер компании:')
                 company_index = int(input('Company: '))
-                if company_index not in range(len(self.companies)):
-                    raise ValueError('Такого номера нет в списке')
-                else:
+                if company_index in range(len(self.companies)):
                     self.quotation.print_last_price(
                         self.order_book, self.companies[company_index]
                     )
+                else:
+                    raise ValueError('Такого номера нет в списке')
 
             elif action == UserAction.VIEW_ORDERS:
                 self.order_book.view_orders()
@@ -178,16 +177,18 @@ class Interface:
                 print('Выход из программы')
                 exit()
 
-            if (
-                action == UserAction.PLACE_BUY_MKT
-                or action == UserAction.PLACE_SELL_MKT
-                or action == UserAction.PLACE_BUY_LMT
-                or action == UserAction.PLACE_SELL_LMT
+            if action in (
+                UserAction.PLACE_BUY_MKT,
+                UserAction.PLACE_SELL_MKT,
+                UserAction.PLACE_BUY_LMT,
+                UserAction.PLACE_SELL_LMT,
             ):
                 print('Введите номер выбранной компании:')
-                print(*enumerate(self.companies), sep='\n')
+                # print(*enumerate(self.companies), sep='\n')
+                for company in enumerate(self.companies):
+                    print(company)
                 company_index = int(input('Action: '))
-                if company_index not in range(len(self.companies)):
+                if company_index not in range(0, len(self.companies)):
                     raise ValueError('Такого номера нет в списке')
                 company = self.companies[company_index]
                 print('Введите количество')
@@ -278,6 +279,22 @@ class OrderBook:
     def record_trade(self, company, price):
         self.last_trade_price[company] = price
 
+    def get_best_prices(self, company):
+        company_buy_prices = [
+            o.price
+            for o in self.buy_lmt_orders
+            if o.company == company and o.status in ('PENDING', 'PARTIAL')
+        ]
+        company_sell_prices = [
+            o.price
+            for o in self.sell_lmt_orders
+            if o.company == company and o.status in ('PENDING', 'PARTIAL')
+        ]
+        # print(company_sell_prices)
+        # print(company_buy_prices)
+        best_bid = max(company_buy_prices) if company_buy_prices else None
+        best_ask = min(company_sell_prices) if company_sell_prices else None
+        return best_bid, best_ask
 
     @staticmethod
     def create_limit_order(action, company, order_type, price, quantity):
@@ -306,84 +323,58 @@ class OrderBook:
             print('Ордеров нет')
 
     def add_order(self, order):
-        self.orders.append(order)
+
         if order.order_type == 'LMT':
+            self.orders.append(order)
             if order.action == 'BUY':
                 self.buy_lmt_orders.append(order)
             if order.action == 'SELL':
                 self.sell_lmt_orders.append(order)
-        if order.order_type == 'LMT':
             print(
                 f'You have placed a limit'
                 f' {order.action.lower()} order for {order.quantity} {order.company} '
                 f'shares at ${order.price} each'
             )
-        elif order.order_type == 'MKT':
-            company_buy_prices = [
-                o.price
-                for o in self.buy_lmt_orders
-                if o.company == order.company
-                and o.status in ('PENDING', 'PARTIAL')
-            ]
-            company_sell_prices = [
-                o.price
-                for o in self.sell_lmt_orders
-                if o.company == order.company
-                and o.status in ('PENDING', 'PARTIAL')
-            ]
-            print(company_sell_prices)
-            print(company_buy_prices)
-            best_bid = max(company_buy_prices) if company_buy_prices else None
-            best_ask = min(company_sell_prices) if company_sell_prices else None
 
+        elif order.order_type == 'MKT':
+            best_bid, best_ask = self.get_best_prices(order.company)
             if order.action == 'BUY':
                 if best_ask is None:
-                    raise ValueError('Нельзя выставить рыночный buy-ордер, цена не установлена лимитными ордерами')
+                    order.status = 'CANCELLED'
+                    raise ValueError(
+                        'Нельзя выставить рыночный buy-ордер, цена не установлена лимитными ордерами'
+                    )
                 order.price = best_ask
-                order.status = 'CANCELLED'
 
             elif order.action == 'SELL':
                 if best_bid is None:
-                    raise ValueError('Нельзя выставить рыночный sell-ордер, цена не установлена лимитными ордерами')
+                    order.status = 'CANCELLED'
+                    raise ValueError(
+                        'Нельзя выставить рыночный sell-ордер, цена не установлена лимитными ордерами'
+                    )
                 order.price = best_bid
-                order.status = 'CANCELLED'
 
-            else:
-                order.filled_quantity = order.quantity
-                order.status = 'FILLED'
-                self.record_trade(order.company, order.price)
-                print(
-                    f'You have placed a market order for {order.quantity} {order.company} '
-                    f'shares.'
-                )
+            order.filled_quantity = order.quantity
+            order.status = 'FILLED'
+            self.orders.append(order)
+            self.record_trade(order.company, order.price)
+            print(
+                f'You have placed a market order for {order.quantity} {order.company} '
+                f'shares.'
+            )
 
 
 class Quotation:
+    def update_prices(self):
+        pass
 
     @staticmethod
     def print_last_price(order_book, company):
-        company_buy = [
-            order
-            for order in order_book.buy_lmt_orders
-            if order.company == company
-            and order.status in ('PENDING', 'PARTIAL')
-        ]
-
-        company_sell = [
-            order
-            for order in order_book.sell_lmt_orders
-            if order.company == company
-            and order.status in ('PENDING', 'PARTIAL')
-        ]
-
-        bid = max((order.price for order in company_buy), default=None)
-        ask = min((order.price for order in company_sell), default=None)
+        bid, ask = order_book.get_best_prices(company)
         last = order_book.last_trade_price.get(company)
-        print(order_book.last_trade_price)
+        # print(order_book.last_trade_price)
         if last:
-            print(
-                f'{company} BID: {bid} ASK: {ask}, LAST: {last}'
-            )
+            print(f'{company} BID: {bid} ASK: {ask}, LAST: {last}')
         else:
             print(
                 f'Ордера на покупку/продажу акций компании {company} не выставлялись'

@@ -408,5 +408,10 @@ class MatchingEngine:
                         order_book.record_trade(buy_order.company, trade_price)
 
 
-app = Interface()
-app.choose_interface()
+
+
+
+
+if __name__ == '__main__':
+    app = Interface()
+    app.choose_interface()

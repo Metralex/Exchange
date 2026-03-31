@@ -48,6 +48,7 @@ def find_order(orders, *, action, company, order_type, quantity):
         None,
     )
 
+
 def test_mkt_order_creation(orders_package):
     app = orders_package
     order = find_order(
@@ -61,6 +62,20 @@ def test_mkt_order_creation(orders_package):
     assert order is not None
     assert order.price == 98
     assert order.status == 'FILLED'
+
+
+def test_through_all(monkeypatch, capsys):
+    inputs = iter(['', 'BUY SNAP LMT 150 10', 'VIEW ORDERS', 'QUIT'])
+    monkeypatch.setattr('builtins.input', lambda _: next(inputs))
+
+    app = Interface()
+
+    with pytest.raises(SystemExit):
+        app.choose_interface()
+
+    out = capsys.readouterr().out
+    assert 'SNAP LMT BUY $150.0 0/10 PENDING' in out
+    assert len(app.order_book.orders) == 1
 
 
 
